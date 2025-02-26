@@ -31,10 +31,10 @@ def create_app():
 
 
 
-    # 📌 KAKAO API KEY 로드
-    if not os.getenv("KAKAO_API_KEY"):
-        raise ValueError("❌ KAKAO_API_KEY가 설정되지 않았습니다! .env 파일을 확인하세요.")
-    app.config['TEMPLATES_AUTO_RELOAD'] = True
+    # # 📌 KAKAO API KEY 로드
+    # if not os.getenv("KAKAO_API_KEY"):
+    #     raise ValueError("❌ KAKAO_API_KEY가 설정되지 않았습니다! .env 파일을 확인하세요.")
+    # app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 
 
