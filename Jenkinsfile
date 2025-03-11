@@ -52,20 +52,24 @@ pipeline {
                         """
                     }
                     
-                    // Docker 빌드 및 푸시
+                    // 이전 latest 이미지를 이전 빌드 번호로 태그 변경
                     sh """
-                        # 빌드
+                        # 이전 latest 이미지를 이전 빌드 번호로 태그 변경
+                        PREV_BUILD=\$(expr ${BUILD_NUMBER} - 1)
+                        if [ \$PREV_BUILD -gt 0 ]; then
+                            echo "Retagging previous latest to build number \${PREV_BUILD}..."
+                            aws ecr batch-get-image --repository-name ${SERVICE_NAME} --image-ids imageTag=latest --region ${AWS_REGION} | \\
+                            jq -r '.images[].imageManifest' | \\
+                            aws ecr put-image --repository-name ${SERVICE_NAME} --image-tag \${PREV_BUILD} --image-manifest \$(/bin/cat) --region ${AWS_REGION} || true
+                        fi
+                        
+                        # 새 이미지 빌드
                         echo "Building Docker image..."
-                        docker build -t ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER} .
+                        docker build -t ${DOCKER_IMAGE_NAME}:latest .
                         
-                        # 태그 설정
-                        echo "Tagging Docker image..."
-                        docker tag ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER} ${AWS_ECR_REPO}:${BUILD_NUMBER}
-                        docker tag ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER} ${AWS_ECR_REPO}:latest
-                        
-                        # ECR 푸시
-                        echo "Pushing to ECR..."
-                        docker push ${AWS_ECR_REPO}:${BUILD_NUMBER}
+                        # ECR에 latest 태그로만 푸시
+                        echo "Tagging and pushing new image as latest..."
+                        docker tag ${DOCKER_IMAGE_NAME}:latest ${AWS_ECR_REPO}:latest
                         docker push ${AWS_ECR_REPO}:latest
                     """
                 }
@@ -77,7 +81,7 @@ pipeline {
         success {
             script {
                 discordSend(
-                    description: "[${SERVICE_NAME}] ✅ 빌드 성공 #${BUILD_NUMBER}\n브랜치: ${env.BRANCH_NAME}\n이미지 태그: ${BUILD_NUMBER}", 
+                    description: "[${SERVICE_NAME}] ✅ 빌드 성공 #${BUILD_NUMBER}\n브랜치: ${env.BRANCH_NAME}\n이미지 태그: latest", 
                     title: "${SERVICE_NAME} 빌드 알림",
                     webhookURL: DISCORD_WEBHOOK,
                     footer: "Jenkins Pipeline"
@@ -98,8 +102,7 @@ pipeline {
             script {
                 // 로컬 Docker 이미지 정리
                 sh """
-                    docker rmi ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER} || true
-                    docker rmi ${AWS_ECR_REPO}:${BUILD_NUMBER} || true
+                    docker rmi ${DOCKER_IMAGE_NAME}:latest || true
                     docker rmi ${AWS_ECR_REPO}:latest || true
                 """
             }
