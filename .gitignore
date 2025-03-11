@@ -171,4 +171,7 @@ config.py
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+# Kubernetes manifests
+Zoochacha_k8s/
+
 # End of https://www.toptal.com/developers/gitignore/api/flask

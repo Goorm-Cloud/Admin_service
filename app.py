@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask, url_for
+from flask import Flask, url_for, jsonify
 from services.common.models import db, migrate
 from services.common.oauth import oauth
 
@@ -48,6 +48,10 @@ def create_app():
     def index():
         from flask import redirect
         return redirect("/admin")
+
+    @app.route('/health')
+    def health_check():
+        return jsonify({"status": "healthy"}), 200
 
     # 📌 블루프린트 등록
     app.register_blueprint(login_bp)
