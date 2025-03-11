@@ -31,13 +31,6 @@ def create_app():
 
 
 
-    # # 📌 KAKAO API KEY 로드
-    # if not os.getenv("KAKAO_API_KEY"):
-    #     raise ValueError("❌ KAKAO_API_KEY가 설정되지 않았습니다! .env 파일을 확인하세요.")
-    # app.config['TEMPLATES_AUTO_RELOAD'] = True
-
-
-
     # 📌 DB 설정
     db.init_app(app)
     migrate.init_app(app, db)
@@ -63,3 +56,6 @@ def create_app():
 
 
     return app
+
+# Create the application instance
+app = create_app()
