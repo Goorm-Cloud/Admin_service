@@ -1,13 +1,21 @@
 pipeline {
     agent any
     
+    options {
+        timeout(time: 1, unit: 'HOURS')  // 빌드 타임아웃 설정
+        disableConcurrentBuilds()  // 동시 빌드 방지
+    }
+    
     environment {
-        SERVICE_NAME = 'zoochacha-admin'
-        DOCKER_IMAGE_NAME = 'zoochacha-admin'
-        ECR_REPOSITORY = '${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${DOCKER_IMAGE_NAME}'
+        SERVICE_NAME = 'admin-service'
+        DOCKER_IMAGE_NAME = "${SERVICE_NAME}"
+        AWS_ECR_REPO = "651706756261.dkr.ecr.ap-northeast-2.amazonaws.com/${SERVICE_NAME}"
         AWS_REGION = 'ap-northeast-2'
-        DISCORD_WEBHOOK = credentials('discord-webhook')
-        GIT_CREDENTIALS_ID = 'github-credentials'
+        DISCORD_WEBHOOK = credentials('jenkins-discord-webhook')
+    }
+    
+    triggers {
+        githubPush()
     }
     
     stages {
@@ -18,76 +26,47 @@ pipeline {
             }
         }
         
-        stage('Check Dependencies') {
-            steps {
-                sh '''
-                    docker --version
-                    aws --version
-                '''
-            }
-        }
-        
-        stage('Configure AWS') {
-            steps {
-                withAWS(credentials: 'aws-credentials', region: env.AWS_REGION) {
-                    sh 'aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPOSITORY}'
-                }
-            }
-        }
-        
-        stage('Get Secrets') {
-            steps {
-                withAWS(credentials: 'aws-credentials', region: env.AWS_REGION) {
-                    script {
-                        def secrets = sh(
-                            script: """
-                                aws secretsmanager get-secret-value \
-                                    --secret-id zoochacha-admin-secrets \
-                                    --query SecretString \
-                                    --output text
-                            """,
-                            returnStdout: true
-                        ).trim()
-                        
-                        def secretsMap = readJSON text: secrets
-                        
-                        // Set environment variables from secrets
-                        env.DB_USERNAME = secretsMap.DB_USERNAME
-                        env.DB_PASSWORD = secretsMap.DB_PASSWORD
-                        env.DB_HOST = secretsMap.DB_HOST
-                        env.DB_PORT = secretsMap.DB_PORT
-                        env.DB_NAME = secretsMap.DB_NAME
-                    }
-                }
-            }
-        }
-        
         stage('Build Docker Image') {
             steps {
                 script {
-                    def imageTag = "${env.BUILD_NUMBER}"
+                    // 디버깅용 정보 출력
+                    sh '''
+                        pwd
+                        ls -la
+                        docker --version
+                        aws --version
+                    '''
+                    
+                    // AWS 인증
+                    withCredentials([
+                        string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+                        string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                    ]) {
+                        sh """
+                            aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
+                            aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
+                            aws configure set region ${AWS_REGION}
+                            
+                            # ECR 로그인
+                            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ECR_REPO}
+                        """
+                    }
+                    
+                    // Docker 빌드 및 푸시
                     sh """
-                        docker build -t ${DOCKER_IMAGE_NAME}:${imageTag} \
-                            --build-arg DB_USERNAME=${env.DB_USERNAME} \
-                            --build-arg DB_PASSWORD=${env.DB_PASSWORD} \
-                            --build-arg DB_HOST=${env.DB_HOST} \
-                            --build-arg DB_PORT=${env.DB_PORT} \
-                            --build-arg DB_NAME=${env.DB_NAME} \
-                            .
-                        docker tag ${DOCKER_IMAGE_NAME}:${imageTag} ${ECR_REPOSITORY}:${imageTag}
-                        docker tag ${DOCKER_IMAGE_NAME}:${imageTag} ${ECR_REPOSITORY}:latest
-                    """
-                }
-            }
-        }
-        
-        stage('Push to ECR') {
-            steps {
-                script {
-                    def imageTag = "${env.BUILD_NUMBER}"
-                    sh """
-                        docker push ${ECR_REPOSITORY}:${imageTag}
-                        docker push ${ECR_REPOSITORY}:latest
+                        # 빌드
+                        echo "Building Docker image..."
+                        docker build -t ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER} .
+                        
+                        # 태그 설정
+                        echo "Tagging Docker image..."
+                        docker tag ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER} ${AWS_ECR_REPO}:${BUILD_NUMBER}
+                        docker tag ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER} ${AWS_ECR_REPO}:latest
+                        
+                        # ECR 푸시
+                        echo "Pushing to ECR..."
+                        docker push ${AWS_ECR_REPO}:${BUILD_NUMBER}
+                        docker push ${AWS_ECR_REPO}:latest
                     """
                 }
             }
@@ -95,40 +74,36 @@ pipeline {
     }
     
     post {
-        always {
+        success {
             script {
-                def color
-                def status
-                if (currentBuild.currentResult == 'SUCCESS') {
-                    color = '3066993'
-                    status = 'SUCCESS'
-                } else {
-                    color = '15158332'
-                    status = 'FAILED'
-                }
-                
                 discordSend(
+                    description: "[${SERVICE_NAME}] ✅ 빌드 성공 #${BUILD_NUMBER}\n브랜치: ${env.BRANCH_NAME}\n이미지 태그: ${BUILD_NUMBER}", 
+                    title: "${SERVICE_NAME} 빌드 알림",
                     webhookURL: DISCORD_WEBHOOK,
-                    title: "${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                    description: "Build ${status}\n\nBranch: ${env.BRANCH_NAME}\nCommit: ${env.GIT_COMMIT}",
-                    result: currentBuild.currentResult,
-                    link: env.BUILD_URL,
-                    footer: "Jenkins Pipeline",
-                    thumbnail: "https://jenkins.io/images/logos/jenkins/jenkins.png",
-                    customFields: [[name: 'Status', value: status]],
-                    enableArtifactsList: false,
-                    showChangeset: true
+                    footer: "Jenkins Pipeline"
                 )
-                
-                // Clean up local Docker images
-                sh """
-                    docker rmi ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER} || true
-                    docker rmi ${ECR_REPOSITORY}:${env.BUILD_NUMBER} || true
-                    docker rmi ${ECR_REPOSITORY}:latest || true
-                """
-                
-                cleanWs()
             }
         }
+        failure {
+            script {
+                discordSend(
+                    description: "[${SERVICE_NAME}] ❌ 빌드 실패 #${BUILD_NUMBER}\n브랜치: ${env.BRANCH_NAME}", 
+                    title: "${SERVICE_NAME} 빌드 알림",
+                    webhookURL: DISCORD_WEBHOOK,
+                    footer: "Jenkins Pipeline"
+                )
+            }
+        }
+        always {
+            script {
+                // 로컬 Docker 이미지 정리
+                sh """
+                    docker rmi ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER} || true
+                    docker rmi ${AWS_ECR_REPO}:${BUILD_NUMBER} || true
+                    docker rmi ${AWS_ECR_REPO}:latest || true
+                """
+            }
+            cleanWs()
+        }
     }
-} 
+}
