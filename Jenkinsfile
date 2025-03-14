@@ -138,7 +138,7 @@ pipeline {
                         "description": "파이프라인 빌드가 성공적으로 완료되었습니다.",
                         "color": 3066993,
                         "fields": [
-                            {"name": "프로젝트", "value": "Reservation Service", "inline": true},
+                            {"name": "프로젝트", "value": "Admin Service", "inline": true},
                             {"name": "빌드 번호", "value": "${currentBuild.number}", "inline": true},
                             {"name": "ECR 이미지", "value": "${ECR_REGISTRY}/${ECR_REPO}:${currentBuild.number}", "inline": false},
                             {"name": "커밋 로그", "value": "[GitHub Repository](${GITWEBADD})", "inline": false}
@@ -164,7 +164,7 @@ pipeline {
                         "description": "파이프라인 빌드에 실패하였습니다.",
                         "color": 15158332,
                         "fields": [
-                            {"name": "프로젝트", "value": "Reservation Service", "inline": true},
+                            {"name": "프로젝트", "value": "Admin Service", "inline": true},
                             {"name": "빌드 번호", "value": "${currentBuild.number}", "inline": true},
                             {"name": "GitHub Repo", "value": "[Repository Link](${GITWEBADD})", "inline": false}
                         ],
