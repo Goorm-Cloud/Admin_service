@@ -1,112 +1,183 @@
 pipeline {
     agent any
-    
     options {
         timeout(time: 1, unit: 'HOURS')  // 빌드 타임아웃 설정
         disableConcurrentBuilds()  // 동시 빌드 방지
     }
-    
     environment {
-        SERVICE_NAME = 'admin-service'
-        DOCKER_IMAGE_NAME = "${SERVICE_NAME}"
-        AWS_ECR_REPO = "651706756261.dkr.ecr.ap-northeast-2.amazonaws.com/${SERVICE_NAME}"
-        AWS_REGION = 'ap-northeast-2'
+        GITNAME = 'rttitity'
+        GITMAIL = 'jinwoo25803@gmail.com'
+        GITWEBADD = 'https://github.com/Goorm-Cloud/Admin_service.git'
+        GITSSHADD = 'git@github.com:Goorm-Cloud/manifast-admin.git'
+        GITCREDENTIAL = 'git_cre_zinucha'
+        ECR_REGISTRY = '651706756261.dkr.ecr.ap-northeast-2.amazonaws.com'
+        ECR_REPO = 'admin_service'
+        AWS_CREDENTIAL = 'zinucha_AWS_Credentials'
         DISCORD_WEBHOOK = credentials('jenkins-discord-webhook')
     }
-    
-    triggers {
-        githubPush()
-    }
-    
+
     stages {
-        stage('Checkout') {
+        stage('Checkout Application Repository') {
             steps {
-                cleanWs()
-                checkout scm
+                checkout([$class: 'GitSCM', branches: [[name: '*/main']], extensions: [],
+                userRemoteConfigs: [[credentialsId: GITCREDENTIAL, url: GITWEBADD]]])
             }
         }
-        
-        stage('Build Docker Image') {
+
+        // ✅ config.py & .env 파일 생성
+        stage('Create config.py & .env') {
             steps {
                 script {
-                    // 디버깅용 정보 출력
-                    sh '''
-                        pwd
-                        ls -la
-                        docker --version
-                        aws --version
-                    '''
-                    
-                    // AWS 인증
                     withCredentials([
-                        string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
-                        string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                        file(credentialsId: 'config_secret', variable: 'CONFIG_FILE'),
+                        file(credentialsId: 'env_secret', variable: 'ENV_FILE')
                     ]) {
-                        sh """
-                            aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
-                            aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
-                            aws configure set region ${AWS_REGION}
-                            
-                            # ECR 로그인
-                            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ECR_REPO}
-                        """
+                        sh 'cp $CONFIG_FILE config.py'
+                        sh 'cp $ENV_FILE .env'
+                        sh 'chmod 600 config.py .env'
                     }
-                    
-                    // 이전 latest 이미지를 이전 빌드 번호로 태그 변경
-                    sh """
-                        # 이전 latest 이미지를 이전 빌드 번호로 태그 변경
-                        PREV_BUILD=\$(expr ${BUILD_NUMBER} - 1)
-                        if [ \$PREV_BUILD -gt 0 ]; then
-                            echo "Retagging previous latest to build number \${PREV_BUILD}..."
-                            aws ecr batch-get-image --repository-name ${SERVICE_NAME} --image-ids imageTag=latest --region ${AWS_REGION} | \\
-                            jq -r '.images[].imageManifest' | \\
-                            aws ecr put-image --repository-name ${SERVICE_NAME} --image-tag \${PREV_BUILD} --image-manifest \$(/bin/cat) --region ${AWS_REGION} || true
-                        fi
-                        
-                        # 새 이미지 빌드
-                        echo "Building Docker image..."
-                        docker build -t ${DOCKER_IMAGE_NAME}:latest .
-                        
-                        # ECR에 latest 태그로만 푸시
-                        echo "Tagging and pushing new image as latest..."
-                        docker tag ${DOCKER_IMAGE_NAME}:latest ${AWS_ECR_REPO}:latest
-                        docker push ${AWS_ECR_REPO}:latest
-                    """
+                }
+            }
+        }
+
+        // ✅ Docker Image 빌드 및 푸시
+        stage('AWS ECR Login') {
+            steps {
+                script {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CREDENTIAL]]) {
+                        sh "aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
+                    }
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh "docker build -t ${ECR_REGISTRY}/${ECR_REPO}:${currentBuild.number} ."
+                sh "docker build -t ${ECR_REGISTRY}/${ECR_REPO}:latest ."
+            }
+        }
+
+        stage('Push Docker Image to ECR') {
+            steps {
+                sh "docker push ${ECR_REGISTRY}/${ECR_REPO}:${currentBuild.number}"
+                sh "docker push ${ECR_REGISTRY}/${ECR_REPO}:latest"
+            }
+        }
+
+        stage('Delete Docker Image') {
+            steps {
+                sh "docker rmi ${ECR_REGISTRY}/${ECR_REPO}:${currentBuild.number}"
+                sh "docker rmi ${ECR_REGISTRY}/${ECR_REPO}:latest"
+            }
+        }
+
+        // ✅ 매니페스트 레포지토리 체크아웃
+        stage('Checkout Manifest Repository') {
+            steps {
+                script {
+                    // Untracked 파일 정리 (브랜치 변경 오류 방지) 근데 정리가 안됨
+                    // sh 'git clean -fd'
+
+                    checkout([$class: 'GitSCM', branches: [[name: '*/main']],
+                    userRemoteConfigs: [[credentialsId: GITCREDENTIAL, url: GITSSHADD]]])
+                }
+            }
+        }
+
+        // ✅ 이미지 태그 변경
+        stage('Update EKS Manifest') {
+            steps {
+                script {
+                    sh 'git config --local user.email "${GITMAIL}"'
+                    sh 'git config --local user.name "${GITNAME}"'
+
+                    // 최신 변경 사항 가져오기 (덮어쓰기)
+                    sh "git fetch origin main"
+                    sh "git switch main || git checkout main"  // 🔥 `detached HEAD` 상태 방지
+                    sh "git pull --rebase origin main || true"
+                    sh "git reset --hard origin/main"
+
+                    // .gitignore 파일을 credentail에서 등록
+                    // .gitignore_global 미등록시 해당 주석을 제거하여 민감정보 파일을 명시해주어야 함.
+                    //withCredentials([file(credentialsId: 'gitignore_secret_file', variable: 'GITIGNORE_FILE')]) {
+                    //    sh 'cp $GITIGNORE_FILE .gitignore'
+                    //}
+
+                    // 최신 커밋 확인
+                    sh "git log -n 5 --oneline"
+
+                    // 이미지 태그 변경 (빌드 번호 적용)
+                    sh "sed -i 's@image:.*@image: ${ECR_REGISTRY}/${ECR_REPO}:${currentBuild.number}@g' admin.yaml"
+
+                    // 변경 사항 반영
+                    sh "git add ."
+                    sh "git commit -m 'Update manifest with new image tag: ${currentBuild.number}'"
+
+                    // 디버깅용 브랜치 상태 확인
+                    sh "git branch"
+                    sh "git status"
+
+                    // push 실행
+                    sh "git push origin main"
                 }
             }
         }
     }
-    
+
+
+    // ✅ 디스코드 알림
     post {
         success {
             script {
-                discordSend(
-                    description: "[${SERVICE_NAME}] ✅ 빌드 성공 #${BUILD_NUMBER}\n브랜치: ${env.BRANCH_NAME}\n이미지 태그: latest", 
-                    title: "${SERVICE_NAME} 빌드 알림",
-                    webhookURL: DISCORD_WEBHOOK,
-                    footer: "Jenkins Pipeline"
-                )
+                def discordMessage = """{
+                    "username": "Jenkins",
+                    "avatar_url": "https://www.jenkins.io/images/logos/jenkins/jenkins.png",
+                    "embeds": [{
+                        "title": "✅ Jenkins Build 성공!",
+                        "description": "파이프라인 빌드가 성공적으로 완료되었습니다.",
+                        "color": 3066993,
+                        "fields": [
+                            {"name": "프로젝트", "value": "Reservation Service", "inline": true},
+                            {"name": "빌드 번호", "value": "${currentBuild.number}", "inline": true},
+                            {"name": "ECR 이미지", "value": "${ECR_REGISTRY}/${ECR_REPO}:${currentBuild.number}", "inline": false},
+                            {"name": "커밋 로그", "value": "[GitHub Repository](${GITWEBADD})", "inline": false}
+                        ],
+                        "footer": {
+                            "text": "Jenkins CI/CD",
+                            "icon_url": "https://www.jenkins.io/images/logos/jenkins/jenkins.png"
+                        },
+                        "timestamp": "${new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone('UTC'))}"
+                    }]
+                }"""
+
+                sh "curl -X POST -H 'Content-Type: application/json' -d '${discordMessage}' ${DISCORD_WEBHOOK}"
             }
         }
         failure {
             script {
-                discordSend(
-                    description: "[${SERVICE_NAME}] ❌ 빌드 실패 #${BUILD_NUMBER}\n브랜치: ${env.BRANCH_NAME}", 
-                    title: "${SERVICE_NAME} 빌드 알림",
-                    webhookURL: DISCORD_WEBHOOK,
-                    footer: "Jenkins Pipeline"
-                )
+                def discordMessage = """{
+                    "username": "Jenkins",
+                    "avatar_url": "https://www.jenkins.io/images/logos/jenkins/jenkins.png",
+                    "embeds": [{
+                        "title": "❌ Jenkins Build 실패!",
+                        "description": "파이프라인 빌드에 실패하였습니다.",
+                        "color": 15158332,
+                        "fields": [
+                            {"name": "프로젝트", "value": "Reservation Service", "inline": true},
+                            {"name": "빌드 번호", "value": "${currentBuild.number}", "inline": true},
+                            {"name": "GitHub Repo", "value": "[Repository Link](${GITWEBADD})", "inline": false}
+                        ],
+                        "footer": {
+                            "text": "Jenkins CI/CD",
+                            "icon_url": "https://www.jenkins.io/images/logos/jenkins/jenkins.png"
+                        },
+                        "timestamp": "${new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone('UTC'))}"
+                    }]
+                }"""
+
+                sh "curl -X POST -H 'Content-Type: application/json' -d '${discordMessage}' ${DISCORD_WEBHOOK}"
             }
-        }
-        always {
-            script {
-                // 로컬 Docker 이미지 정리
-                sh """
-                    docker rmi ${DOCKER_IMAGE_NAME}:latest || true
-                    docker rmi ${AWS_ECR_REPO}:latest || true
-                """
-            }
-            cleanWs()
         }
     }
 }
