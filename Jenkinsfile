@@ -11,7 +11,7 @@ pipeline {
         GITSSHADD = 'git@github.com:Goorm-Cloud/manifast-admin.git'
         GITCREDENTIAL = 'git_cre_zinucha'
         ECR_REGISTRY = '651706756261.dkr.ecr.ap-northeast-2.amazonaws.com'
-        ECR_REPO = 'admin_service'
+        ECR_REPO = 'admin-service'
         AWS_CREDENTIAL = 'zinucha_AWS_Credentials'
         DISCORD_WEBHOOK = credentials('jenkins-discord-webhook')
     }
