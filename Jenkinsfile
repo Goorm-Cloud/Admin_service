@@ -118,7 +118,7 @@ pipeline {
                     sh "git branch"
                     sh "git status"
 
-                    // push 실행
+                    // push 실행.
                     sh "git push origin main"
                 }
             }
