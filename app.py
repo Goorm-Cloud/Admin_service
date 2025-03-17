@@ -14,14 +14,14 @@ from services.admin_service.routes import admin_bp, login_bp
 def create_app():
     app = Flask(__name__)
     
-    # Load configuration from environment variables
-    app.config.update(
-        ADMIN_SERVICE_URL=os.getenv('ADMIN_SERVICE_URL', '/admin'),
-        SECRET_KEY=os.getenv('SECRET_KEY', os.urandom(24)),
-        # Add other config variables as needed
-        SQLALCHEMY_DATABASE_URI=os.getenv('DATABASE_URL'),
-        SQLALCHEMY_TRACK_MODIFICATIONS=False
-    )
+    # # Load configuration from environment variables
+    # app.config.update(
+    #     ADMIN_SERVICE_URL=os.getenv('ADMIN_SERVICE_URL', '/admin'),
+    #     SECRET_KEY=os.getenv('SECRET_KEY', os.urandom(24)),
+    #     Add other config variables as needed
+    #     SQLALCHEMY_DATABASE_URI=os.getenv('DATABASE_URL'),
+    #     SQLALCHEMY_TRACK_MODIFICATIONS=False
+    # )
 
     # 📌 OAuth 설정
     oauth.init_app(app)
