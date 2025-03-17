@@ -13,6 +13,10 @@ from services.admin_service.routes import admin_bp, login_bp
 
 def create_app():
     app = Flask(__name__)
+
+    # config 설정파일 불러오기 *jinwoo
+    app.config.from_pyfile('config.py')
+    app.secret_key = os.urandom(24)
     
     # # Load configuration from environment variables
     # app.config.update(
