@@ -3,13 +3,12 @@ import os
 from flask import Flask, url_for, jsonify
 from services.common.models import db, migrate
 from services.common.oauth import oauth
+from dotenv import load_dotenv
 
 from services.admin_service.routes import admin_bp, login_bp
-# from services.map_service.routes import map_bp
-# from services.reservation_service.routes import parkinglot_bp
-# from services.reservation_service.reservation_route import reservation_bp
-# # from services.reservation_detail_service.routes import reservation_detail_bp
 
+# .env 파일 자동 로드
+load_dotenv()
 
 def create_app():
     app = Flask(__name__)
