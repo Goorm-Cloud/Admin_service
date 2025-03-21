@@ -17,7 +17,7 @@ def role_check():
     if "admin" in user_groups:
         return redirect(url_for('admin_bp.admin_dashboard_route'))
     else:
-        return redirect(url_for('MAP_SERVICE_URL'))
+        return redirect(os.getenv("MAP_SERVICE_URL"))
 
 
 def authorize():
