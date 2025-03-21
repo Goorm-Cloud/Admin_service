@@ -21,6 +21,7 @@ def role_check():
 
 
 def authorize():
+    print("🔍 [DEBUG] authorize() 호출됨")
     token = oauth.oidc.authorize_access_token()
     print("토큰 정보: ", token)
     user = token['userinfo']
