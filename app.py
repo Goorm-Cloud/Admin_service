@@ -1,9 +1,10 @@
 import os
-
 from flask import Flask, url_for, jsonify
 from services.common.models import db, migrate
 from services.common.oauth import oauth
 from dotenv import load_dotenv
+from flask_session import Session
+import redis
 
 from services.admin_service.routes import admin_bp, login_bp
 
@@ -16,15 +17,15 @@ def create_app():
     # config 설정파일 불러오기 *jinwoo
     app.config.from_pyfile('config.py')
     app.secret_key = os.urandom(24)
-    
-    # # Load configuration from environment variables
-    # app.config.update(
-    #     ADMIN_SERVICE_URL=os.getenv('ADMIN_SERVICE_URL', '/admin'),
-    #     SECRET_KEY=os.getenv('SECRET_KEY', os.urandom(24)),
-    #     Add other config variables as needed
-    #     SQLALCHEMY_DATABASE_URI=os.getenv('DATABASE_URL'),
-    #     SQLALCHEMY_TRACK_MODIFICATIONS=False
-    # )
+
+    # 📌 세션 설정
+    app.config['SESSION_TYPE'] = 'redis'
+    app.config['SESSION_PERMANENT'] = False
+    app.config['SESSION_USE_SIGNER'] = True
+    app.config['SESSION_KEY_PREFIX'] = 'admin_service:'
+    app.config['SESSION_REDIS'] = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+
+    Session(app)
 
     # 📌 KAKAO API KEY 로드
     if not os.getenv("KAKAO_API_KEY"):
