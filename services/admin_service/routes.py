@@ -27,7 +27,9 @@ def authorize_route():
 def logout_route():
     return logout()
 
-
+@login_bp.route('/callback')
+def logout_route():
+    return authorize()
 
 # 관리자 관련 라우트 - 예약 정보
 @admin_bp.route('/')
