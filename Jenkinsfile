@@ -29,7 +29,7 @@ pipeline {
             steps {
                 script {
                     withCredentials([
-                        file(credentialsId: 'config_secret', variable: 'CONFIG_FILE'),
+                        file(credentialsId: 'Redis_config_secret', variable: 'CONFIG_FILE'),
                         file(credentialsId: 'zinu_env_secret', variable: 'ENV_FILE')
                     ]) {
                         sh 'cp $CONFIG_FILE config.py'
