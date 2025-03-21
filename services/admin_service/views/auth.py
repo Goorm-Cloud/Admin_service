@@ -7,7 +7,7 @@ def login():
 
 def logout():
     session.pop('user', None)
-    return redirect(url_for('map_bp.index')) #민승님 메인 화면으로 이동
+    return redirect(config['MAP_SERVICE_URL']) #민승님 메인 화면으로 이동
 
 
 def role_check():
@@ -17,7 +17,7 @@ def role_check():
     if "admin" in user_groups:
         return redirect(url_for('admin_bp.admin_dashboard_route'))
     else:
-        return redirect(os.getenv("MAP_SERVICE_URL"))
+        return redirect(config['MAP_SERVICE_URL'])
 
 
 def authorize():
