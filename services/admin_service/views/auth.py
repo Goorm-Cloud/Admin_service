@@ -67,6 +67,8 @@ def role_check():
 
 def authorize():
     print("🔍 [DEBUG] authorize() 호출됨")
+    logger.debug(f"🆔 [DEBUG] 현재 세션 ID: {session.sid}")  # 현재 세션 ID 확인
+
 
     requested_state = request.args.get('state')
     stored_state = session.get('oidc_state')  # ✅ Redis에서 가져오기
