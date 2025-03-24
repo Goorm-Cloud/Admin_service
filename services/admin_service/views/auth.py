@@ -13,11 +13,9 @@ logger = logging.getLogger(__name__)
 def login():
     state = os.urandom(24).hex()  # 랜덤한 상태 값 생성
     session['oidc_state'] = state  # ✅ Redis에 저장됨
-    logger.debug(f"🔍 [DEBUG] 생성된 OIDC State 값: {state}")
 
-    # ✅ Redis에 값이 잘 저장되었는지 확인
-    stored_state = session.get('oidc_state')
-    logger.debug(f"🔍 [DEBUG] Redis에 저장된 oidc_state: {stored_state}")
+    logger.debug(f"🔍 [DEBUG] 생성된 OIDC State 값: {state}")
+    logger.debug(f"🆔 [DEBUG] 현재 세션 ID: {session.sid}")  # 현재 세션 ID 확인
 
     return oauth.oidc.authorize_redirect(
         os.getenv("AUTHORIZE_REDIRECT_URL"),
