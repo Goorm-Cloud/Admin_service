@@ -11,8 +11,11 @@ logger = logging.getLogger(__name__)
 #     return oauth.oidc.authorize_redirect(os.getenv("AUTHORIZE_REDIRECT_URL"))
 
 def login():
-    state = os.urandom(24).hex()  # 랜덤한 상태 값 생성
-    session['oidc_state'] = state  # ✅ Redis에 저장됨
+    if 'oidc_state' in session:
+        state = session['oidc_state']  # 기존 state 값 사용
+    else:
+        state = os.urandom(24).hex()  # 새로운 state 값 생성
+        session['oidc_state'] = state  # ✅ Redis에 저장
 
     logger.debug(f"🔍 [DEBUG] 생성된 OIDC State 값: {state}")
     logger.debug(f"🆔 [DEBUG] 현재 세션 ID: {session.sid}")  # 현재 세션 ID 확인
@@ -66,10 +69,23 @@ def authorize():
 
     requested_state = request.args.get('state')
     stored_state = session.get('oidc_state')  # ✅ Redis에서 가져오기
+
+    # Redis에서 직접 조회
+    redis_key = f"session:{session.sid}"
+    redis_data = SESSION_REDIS.get(redis_key)
+
+    logger.debug(f"🔍 [DEBUG] Redis 데이터: {redis_data}")
+
+    if redis_data:
+        import json
+        redis_data = json.loads(redis_data)
+        stored_state = redis_data.get("oidc_state", None)
+
     logger.debug(f"🔍 [DEBUG] OAuth State 확인 | 요청 값: {requested_state} | 세션 값: {stored_state}")
 
     if stored_state is None:
         logger.error("🚨 [ERROR] Redis에서 세션을 찾을 수 없음. 세션이 만료되었거나 저장되지 않았을 가능성이 있음.")
+        return jsonify({"error": "Session not found in Redis"}), 403
 
     if requested_state != stored_state:
         logger.warning("🚨 CSRF Warning! State 값이 일치하지 않음")
@@ -80,7 +96,6 @@ def authorize():
 
     session['user'] = token['userinfo']  # ✅ 로그인 후 사용자 정보 Redis에 저장
     logger.info(f"✅ 로그인 성공! 사용자 정보: {session['user']}")
-
 
     return role_check()
 
