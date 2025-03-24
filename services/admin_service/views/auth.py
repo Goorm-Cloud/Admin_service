@@ -2,6 +2,7 @@ from flask import render_template, redirect, url_for, session, request
 from services.common.oauth import oauth
 import os
 import logging
+from config import SESSION_REDIS
 
 # 📌 로깅 설정
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
