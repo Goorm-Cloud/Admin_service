@@ -1,4 +1,4 @@
-from flask import Blueprint
+from flask import Blueprint, request, jsonify, session, current_app
 from .views.auth import login, role_check, authorize, logout
 from .views.admin_list import admin_dashboard
 from .views.reservation import add_reservation, edit_reservation, delete_reservation, reservation_detail
@@ -12,10 +12,12 @@ admin_bp = Blueprint('admin_bp', __name__)
 
 @login_bp.route("/get-session-id")
 def get_session_id():
-    session_id = session.get('session_id')  # 세션에서 값을 가져옴
-    if not session_id:
-        return jsonify({"error": "Session ID not found"}), 500
-    return jsonify({"session_id": session_id})
+    with current_app.app_context():  # Flask 컨텍스트 내에서 실행
+        session_id = session.get('session_id')  # 세션에서 값을 가져옴
+        if session_id:
+            return jsonify({"session_id": session_id}), 200
+        else:
+            return jsonify({"error": "No session ID found"}), 404
 
 # 로그인 관련 라우트
 @login_bp.route('/login')
