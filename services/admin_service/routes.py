@@ -10,6 +10,11 @@ login_bp = Blueprint('login_bp', __name__)
 admin_bp = Blueprint('admin_bp', __name__)
 
 
+@app.route("/get-session-id")
+def get_session_id():
+    session_id = session.sid if hasattr(session, "sid") else "세션 ID 없음"
+    return jsonify({"session_id": session_id, "session_data": dict(session)})
+
 # 로그인 관련 라우트
 @login_bp.route('/login')
 def login_route():
