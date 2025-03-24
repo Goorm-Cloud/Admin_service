@@ -15,6 +15,10 @@ def login():
     session['oidc_state'] = state  # ✅ Redis에 저장됨
     logger.debug(f"🔍 [DEBUG] 생성된 OIDC State 값: {state}")
 
+    # ✅ Redis에 값이 잘 저장되었는지 확인
+    stored_state = session.get('oidc_state')
+    logger.debug(f"🔍 [DEBUG] Redis에 저장된 oidc_state: {stored_state}")
+
     return oauth.oidc.authorize_redirect(
         os.getenv("AUTHORIZE_REDIRECT_URL"),
         state=state
@@ -65,6 +69,9 @@ def authorize():
     requested_state = request.args.get('state')
     stored_state = session.get('oidc_state')  # ✅ Redis에서 가져오기
     logger.debug(f"🔍 [DEBUG] OAuth State 확인 | 요청 값: {requested_state} | 세션 값: {stored_state}")
+
+    if stored_state is None:
+        logger.error("🚨 [ERROR] Redis에서 세션을 찾을 수 없음. 세션이 만료되었거나 저장되지 않았을 가능성이 있음.")
 
     if requested_state != stored_state:
         logger.warning("🚨 CSRF Warning! State 값이 일치하지 않음")
