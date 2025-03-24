@@ -62,17 +62,16 @@ def role_check():
 def authorize():
     print("🔍 [DEBUG] authorize() 호출됨")
 
-    token = oauth.oidc.authorize_access_token()
-    logger.debug(f"✅ 받은 토큰 정보: {token}")
-
     requested_state = request.args.get('state')
     stored_state = session.get('oidc_state')  # ✅ Redis에서 가져오기
-
     logger.debug(f"🔍 [DEBUG] OAuth State 확인 | 요청 값: {requested_state} | 세션 값: {stored_state}")
 
     if requested_state != stored_state:
         logger.warning("🚨 CSRF Warning! State 값이 일치하지 않음")
         return jsonify({"error": "CSRF Warning! State does not match."}), 403
+
+    token = oauth.oidc.authorize_access_token()
+    logger.debug(f"✅ 받은 토큰 정보: {token}")
 
     session['user'] = token['userinfo']  # ✅ 로그인 후 사용자 정보 Redis에 저장
     logger.info(f"✅ 로그인 성공! 사용자 정보: {session['user']}")
