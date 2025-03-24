@@ -44,4 +44,4 @@ ENV FLASK_APP=app.py
 ENV FLASK_ENV=production
 
 # Run the application with gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8001", "--workers", "4", "--timeout", "300", "app:app"] 
+CMD ["gunicorn", "--bind", "0.0.0.0:8001", "--workers", "4", "--log-level=debug", "--access-logfile=-", "--error-logfile=-", "--timeout", "300", "app:app"]
