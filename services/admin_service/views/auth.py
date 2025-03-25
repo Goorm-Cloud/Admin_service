@@ -9,11 +9,20 @@ logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %
 logger = logging.getLogger(__name__)
 
 def login():
+    session.permanent = True  # 🔥 세션 유지
+    state = os.urandom(24).hex()  # ✅ 새로운 state 생성
+    session["oidc_state"] = state  # ✅ Flask 세션에 저장
+
+    # ✅ Redis에도 저장 (state → session_id 매핑)
+    redis_key = f"state:{state}"
+    current_app.config['SESSION_REDIS'].setex(redis_key, 300, session.sid)  # 5분 TTL 설정
+
+    logger.debug(f"🔍 [DEBUG] 생성된 OIDC State 값: {state} (Session ID: {session.sid})")
 
     return oauth.oidc.authorize_redirect(
         os.getenv("AUTHORIZE_REDIRECT_URL"),
+        state=state
     )
-
 def logout():
     session.pop('user', None)
     session.modified = True  # 🔥 세션 변경 사항 반영
@@ -33,10 +42,31 @@ def role_check():
 
 
 def authorize():
+    logger.debug("🔍 [DEBUG] authorize() 호출됨")
+
+    requested_state = request.args.get("state")
+    redis_key = f"state:{requested_state}"
+
+    # ✅ Redis에서 state → session_id 매핑값 가져오기
+    session_id = current_app.config["SESSION_REDIS"].get(redis_key)
+
+    if not session_id:
+        logger.error("🚨 [ERROR] Redis에서 state 값을 찾을 수 없음.")
+        return jsonify({"error": "Invalid state or session expired"}), 403
+
+    session_id = session_id.decode()  # ✅ Redis에서 가져온 값은 bytes이므로 decode() 필요
+    logger.debug(f"🔍 [DEBUG] Redis에서 찾은 세션 ID: {session_id}")
+
+    # ✅ 세션 ID 검증
+    if session.sid != session_id:
+        logger.warning("🚨 CSRF Warning! 세션 ID 불일치")
+        return jsonify({"error": "CSRF Warning! State does not match"}), 403
+
+    # ✅ OAuth 인증 요청
     token = oauth.oidc.authorize_access_token()
-    user = token['userinfo']
-    session['user'] = user
+    logger.debug(f"✅ 받은 token 정보: {token}")
 
-    logger.debug(f"✅ 받은 사용자 정보: {user}")
+    session["user"] = token["userinfo"]
+    logger.debug(f"✅ 받은 사용자 정보: {session['user']}")
 
-    return response
+    return role_check()
