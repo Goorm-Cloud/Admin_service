@@ -22,7 +22,7 @@ def login():
 
     # ✅ JSON 직렬화하여 Redis에 저장
     session_id_json = json.dumps(session_id)
-    session_data = json.dumps({"session_id": session_id, "exp": 1711381200})
+    session_data = json.dumps({"session_id": session_id, "exp": 1711381200}, ensure_ascii=False)
 
     logger.debug(f"🔥 [DEBUG] Redis에 저장될 session_id: {session_id_json}")
     logger.debug(f"🔥 [DEBUG] Redis에 저장될 session_data: {session_data}")
@@ -30,7 +30,12 @@ def login():
     current_app.config["SESSION_REDIS"].setex(redis_state_key, 300, session_id_json)
     current_app.config["SESSION_REDIS"].setex(redis_session_key, 300, session_data)
 
-    logger.debug(f"✅ 로그인 요청 - State: {state}, Session ID: {session_id}")
+    # ✅ Redis에 저장된 값 바로 확인
+    stored_session_id = current_app.config["SESSION_REDIS"].get(redis_state_key)
+    stored_session_data = current_app.config["SESSION_REDIS"].get(redis_session_key)
+
+    logger.debug(f"🔍 [DEBUG] Redis에 저장된 session_id: {stored_session_id}")
+    logger.debug(f"🔍 [DEBUG] Redis에 저장된 session_data: {stored_session_data}")
 
     return oauth.oidc.authorize_redirect(
         os.getenv("AUTHORIZE_REDIRECT_URL"),
