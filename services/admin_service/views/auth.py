@@ -71,7 +71,7 @@ def authorize():
 
     requested_state = request.args.get('state')
 
-    # ✅ Redis에서 state 조회 (session ID 가져오기)
+    # ✅ Redis에서 state 값으로 세션 ID 조회
     redis_key = f"state:{requested_state}"
     session_id = current_app.config['SESSION_REDIS'].get(redis_key)
 
@@ -79,15 +79,21 @@ def authorize():
         logger.error("🚨 [ERROR] Redis에서 state 값을 찾을 수 없음.")
         return jsonify({"error": "Invalid state or session expired"}), 403
 
+    session_id = session_id.decode()
     logger.debug(f"🔍 [DEBUG] Redis에서 찾은 세션 ID: {session_id}")
 
-    # ✅ Redis에서 실제 세션 정보 조회
-    session_key = f"session:{session_id.decode()}"
+    # ✅ Redis에서 실제 세션 데이터 조회
+    session_key = f"session:{session_id}"
     session_data = current_app.config['SESSION_REDIS'].get(session_key)
 
     if not session_data:
         logger.error("🚨 [ERROR] Redis에서 세션 정보를 찾을 수 없음.")
         return jsonify({"error": "Session expired"}), 403
+
+    session_data = json.loads(session_data)
+
+    # 🔥 Authlib이 기대하는 state 값을 session에 강제로 설정
+    session['oidc_state'] = requested_state
 
     # 🔥 인증 토큰 받아오기
     token = oauth.oidc.authorize_access_token()
