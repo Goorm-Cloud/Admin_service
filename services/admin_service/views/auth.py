@@ -1,8 +1,7 @@
-from flask import render_template, redirect, url_for, session, request, jsonify
+from flask import render_template, redirect, url_for, session, request, jsonify, current_app
 from services.common.oauth import oauth
 import os
 import logging
-from config import SESSION_REDIS
 
 # 📌 로깅 설정
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -30,8 +29,7 @@ def logout():
     session.pop('user', None)
     logger.info("✅ 로그아웃 처리 완료, 메인 화면으로 이동")
 
-    return redirect(current_app.config['MAP_SERVICE_URL']) #민승님 메인 화면으로 이동
-
+    return redirect(current_app.config['MAP_SERVICE_URL'])  # 메인 화면으로 이동
 
 def role_check():
     user = session.get('user')
@@ -45,16 +43,15 @@ def role_check():
         logger.info("✅ 일반 사용자 확인됨, 메인 페이지로 이동")
         return redirect(current_app.config['MAP_SERVICE_URL'])
 
-
 def authorize():
     print("🔍 [DEBUG] authorize() 호출됨")
     logger.debug(f"🆔 [DEBUG] 현재 세션 ID: {session.get('session_id')}")  # 현재 세션 ID 확인
 
     requested_state = request.args.get('state')
 
-    # Redis에서 직접 세션 조회
-    redis_key = f"{SESSION_KEY_PREFIX}{session.get('session_id')}"
-    redis_data = SESSION_REDIS.get(redis_key)
+    # 🔥 `config.py` 대신 `current_app.config`를 사용하여 설정 값 가져오기
+    redis_key = f"{current_app.config['SESSION_KEY_PREFIX']}{session.get('session_id')}"
+    redis_data = current_app.config['SESSION_REDIS'].get(redis_key)
 
     logger.debug(f"🔍 [DEBUG] Redis 데이터: {redis_data}")
 
