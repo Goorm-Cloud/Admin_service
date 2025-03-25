@@ -66,6 +66,8 @@ def role_check():
         return redirect(current_app.config['MAP_SERVICE_URL'])
 
 
+import pickle
+
 def authorize():
     logger.debug("🔍 [DEBUG] authorize() 호출됨")
 
@@ -90,7 +92,11 @@ def authorize():
         logger.error("🚨 [ERROR] Redis에서 세션 정보를 찾을 수 없음.")
         return jsonify({"error": "Session expired"}), 403
 
-    session_data = json.loads(session_data)
+    try:
+        session_data = pickle.loads(session_data)  # ✅ Pickle 역직렬화 적용
+    except Exception as e:
+        logger.error(f"🚨 [ERROR] 세션 데이터 로드 실패: {e}")
+        return jsonify({"error": "Failed to load session data"}), 500
 
     # 🔥 Authlib이 기대하는 state 값을 session에 강제로 설정
     session['oidc_state'] = requested_state
@@ -106,7 +112,7 @@ def authorize():
 
     logger.debug(f"✅ 받은 사용자 정보: {user_info}")
 
-    # 🔥 Redis에 사용자 세션 저장
+    # 🔥 Redis에 사용자 세션 저장 (JSON 형식)
     user_session_key = f"{current_app.config['SESSION_KEY_PREFIX']}user:{user_info.get('sub')}"
     session_data = {
         "access_token": access_token,
