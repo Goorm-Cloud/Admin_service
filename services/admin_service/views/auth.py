@@ -37,7 +37,7 @@ def login():
 def authorize():
     """Cognito에서 리디렉션 후 호출되는 콜백 함수 (액세스 토큰 발급)"""
 
-    # 1️⃣ ✅ `state` 및 `code` 검증
+    # ✅ `state` 및 `code` 검증
     requested_state = request.args.get("state")
     authorization_code = request.args.get("code")
 
@@ -51,34 +51,7 @@ def authorize():
 
     logger.debug(f"✅ 콜백 요청 - State: {requested_state}, Code: {authorization_code}")
 
-    # 2️⃣ ✅ Redis에서 `state` 기반으로 `session_id` 조회 (JSON 역직렬화)
-    redis_state_key = f"state:{requested_state}"
-    session_id = current_app.config["SESSION_REDIS"].get(redis_state_key)
-
-    if not session_id:
-        logger.error(f"🚨 [ERROR] Redis에서 state 매핑값 없음! state: {requested_state}")
-        return jsonify({"error": "Invalid state or session expired"}), 403
-
-    # JSON 문자열을 파싱해서 session_id 가져오기
-    session_id = json.loads(session_id)
-
-    # 3️⃣ ✅ Redis에서 `session_id` 기반으로 세션 데이터 조회
-    redis_session_key = f"session:{session_id}"
-    session_data = current_app.config["SESSION_REDIS"].get(redis_session_key)
-
-    if not session_data:
-        logger.error(f"🚨 [ERROR] Redis에서 세션 데이터 없음! session_id: {session_id}")
-        return jsonify({"error": "Session data not found"}), 403
-
-    try:
-        # 4️⃣ ✅ JSON 변환 (디코딩)
-        session_data = json.loads(session_data)
-        logger.debug(f"🔍 [DEBUG] Redis에서 찾은 세션 데이터: {session_data}")
-    except Exception as e:
-        logger.error(f"🚨 [ERROR] 세션 데이터 디코딩 실패: {str(e)}")
-        return jsonify({"error": "Failed to decode session data"}), 500
-
-    # 5️⃣ ✅ Cognito에 Authorization Code 전달하여 액세스 토큰 요청
+    # ✅ Cognito에 Authorization Code 전달하여 액세스 토큰 요청
     try:
         token = oauth.oidc.authorize_access_token()
         session["user"] = token["userinfo"]
