@@ -3,6 +3,7 @@ from services.common.oauth import oauth
 import os
 import logging
 import json
+import pickle
 
 # 📌 로깅 설정
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -41,6 +42,8 @@ def role_check():
         return redirect(current_app.config['MAP_SERVICE_URL'])
 
 
+import pickle  # ✅ Pickle 모듈 추가
+
 def authorize():
     logger.debug("🔍 [DEBUG] authorize() 호출됨")
 
@@ -54,16 +57,23 @@ def authorize():
         logger.error("🚨 [ERROR] Redis에서 state 값을 찾을 수 없음.")
         return jsonify({"error": "Invalid state or session expired"}), 403
 
-    session_id = session_id.decode()  # ✅ Redis에서 가져온 값은 bytes이므로 decode() 필요
+    session_id = session_id.decode()
     logger.debug(f"🔍 [DEBUG] Redis에서 찾은 세션 ID: {session_id}")
 
+    # ✅ Redis에서 session 데이터 가져오기
     session_data = current_app.config["SESSION_REDIS"].get(f"session:{session_id}")
+
     if not session_data:
         logger.error("🚨 [ERROR] Redis에서 세션 데이터를 찾을 수 없음.")
         return jsonify({"error": "Session data not found"}), 403
 
-    session_data = json.loads(session_data.decode())  # JSON 데이터 파싱
-    logger.debug(f"🔍 [DEBUG] Redis에서 찾은 세션 데이터: {session_data}")
+    try:
+        # ✅ Pickle로 데이터 디코딩 시도
+        session_data = pickle.loads(session_data)
+        logger.debug(f"🔍 [DEBUG] Redis에서 찾은 세션 데이터 (Pickle 변환 후): {session_data}")
+    except Exception as e:
+        logger.error(f"🚨 [ERROR] 세션 데이터 디코딩 실패: {e}")
+        return jsonify({"error": "Failed to decode session data"}), 500
 
     # ✅ OAuth 인증 요청
     token = oauth.oidc.authorize_access_token()
