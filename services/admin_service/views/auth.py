@@ -57,10 +57,10 @@ def authorize():
     session_id = session_id.decode()  # ✅ Redis에서 가져온 값은 bytes이므로 decode() 필요
     logger.debug(f"🔍 [DEBUG] Redis에서 찾은 세션 ID: {session_id}")
 
-    # ✅ 세션 ID 검증
-    if session.sid != session_id:
-        logger.warning("🚨 CSRF Warning! 세션 ID 불일치")
-        return jsonify({"error": "CSRF Warning! State does not match"}), 403
+    # # ✅ 세션 ID 검증
+    # if session.sid != session_id:
+    #     logger.warning("🚨 CSRF Warning! 세션 ID 불일치")
+    #     return jsonify({"error": "CSRF Warning! State does not match"}), 403
 
     # ✅ OAuth 인증 요청
     token = oauth.oidc.authorize_access_token()
