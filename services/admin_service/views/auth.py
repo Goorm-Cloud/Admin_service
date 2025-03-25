@@ -21,6 +21,10 @@ def login():
 
     logger.debug(f"🔍 [DEBUG] 생성된 OIDC State 값: {state}")
 
+    # ✅ Redis에 state 저장 (조회 용이하게)
+    redis_key = f"state:{state}"
+    current_app.config['SESSION_REDIS'].setex(redis_key, 300, session.sid)  # 5분 TTL
+
     return oauth.oidc.authorize_redirect(
         os.getenv("AUTHORIZE_REDIRECT_URL"),
         state=state
@@ -66,14 +70,24 @@ def authorize():
     logger.debug("🔍 [DEBUG] authorize() 호출됨")
 
     requested_state = request.args.get('state')
-    redis_key = f"{current_app.config['SESSION_KEY_PREFIX']}state:{requested_state}"
 
-    # Redis에서 state에 해당하는 user_id 찾기
-    user_id = current_app.config['SESSION_REDIS'].get(redis_key)
+    # ✅ Redis에서 state 조회 (session ID 가져오기)
+    redis_key = f"state:{requested_state}"
+    session_id = current_app.config['SESSION_REDIS'].get(redis_key)
 
-    if not user_id:
+    if not session_id:
         logger.error("🚨 [ERROR] Redis에서 state 값을 찾을 수 없음.")
         return jsonify({"error": "Invalid state or session expired"}), 403
+
+    logger.debug(f"🔍 [DEBUG] Redis에서 찾은 세션 ID: {session_id}")
+
+    # ✅ Redis에서 실제 세션 정보 조회
+    session_key = f"session:{session_id.decode()}"
+    session_data = current_app.config['SESSION_REDIS'].get(session_key)
+
+    if not session_data:
+        logger.error("🚨 [ERROR] Redis에서 세션 정보를 찾을 수 없음.")
+        return jsonify({"error": "Session expired"}), 403
 
     # 🔥 인증 토큰 받아오기
     token = oauth.oidc.authorize_access_token()
@@ -87,7 +101,7 @@ def authorize():
     logger.debug(f"✅ 받은 사용자 정보: {user_info}")
 
     # 🔥 Redis에 사용자 세션 저장
-    user_session_key = f"{current_app.config['SESSION_KEY_PREFIX']}user:{user_id}"
+    user_session_key = f"{current_app.config['SESSION_KEY_PREFIX']}user:{user_info.get('sub')}"
     session_data = {
         "access_token": access_token,
         "refresh_token": refresh_token,
