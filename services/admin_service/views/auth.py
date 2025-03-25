@@ -8,10 +8,10 @@ from config import SESSION_REDIS
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-# def login():
-#     return oauth.oidc.authorize_redirect(os.getenv("AUTHORIZE_REDIRECT_URL"))
-
 def login():
+    session.permanent = True  # ✅ 세션을 지속 유지
+    session.modified = True   # ✅ 세션 변경 사항 적용
+
     if 'oidc_state' in session:
         state = session['oidc_state']  # 기존 state 값 사용
     else:
@@ -19,7 +19,7 @@ def login():
         session['oidc_state'] = state  # ✅ Redis에 저장
 
     logger.debug(f"🔍 [DEBUG] 생성된 OIDC State 값: {state}")
-    logger.debug(f"🆔 [DEBUG] 현재 세션 ID: {session.sid}")  # 현재 세션 ID 확인
+    logger.debug(f"🆔 [DEBUG] 현재 세션 ID: {session.get('session_id')}")  # 현재 세션 ID 확인
 
     return oauth.oidc.authorize_redirect(
         os.getenv("AUTHORIZE_REDIRECT_URL"),
@@ -46,35 +46,14 @@ def role_check():
         return redirect(current_app.config['MAP_SERVICE_URL'])
 
 
-# def authorize():
-#     print("🔍 [DEBUG] authorize() 호출됨")
-#     token = oauth.oidc.authorize_access_token()
-#     print("✅ Received token: ", token)
-#
-#     state_in_request = request.args.get('state')
-#     state_in_session = session.get('oauth_state')
-#
-#     print(f"🔍 OAuth State 확인 | 요청 값: {state_in_request} | 세션 값: {state_in_session}")
-#
-#     if state_in_request != state_in_session:
-#         return "State mismatch error", 400
-#
-#     print("토큰 정보: ", token)
-#     user = token['userinfo']
-#     session['user'] = user
-#
-#     return role_check()
-
 def authorize():
     print("🔍 [DEBUG] authorize() 호출됨")
-    logger.debug(f"🆔 [DEBUG] 현재 세션 ID: {session.sid}")  # 현재 세션 ID 확인
-
+    logger.debug(f"🆔 [DEBUG] 현재 세션 ID: {session.get('session_id')}")  # 현재 세션 ID 확인
 
     requested_state = request.args.get('state')
-    stored_state = session.get('oidc_state')  # ✅ Redis에서 가져오기
 
-    # Redis에서 직접 조회
-    redis_key = f"session:{session.sid}"
+    # Redis에서 직접 세션 조회
+    redis_key = f"{SESSION_KEY_PREFIX}{session.get('session_id')}"
     redis_data = SESSION_REDIS.get(redis_key)
 
     logger.debug(f"🔍 [DEBUG] Redis 데이터: {redis_data}")
@@ -83,6 +62,8 @@ def authorize():
         import json
         redis_data = json.loads(redis_data)
         stored_state = redis_data.get("oidc_state", None)
+    else:
+        stored_state = None
 
     logger.debug(f"🔍 [DEBUG] OAuth State 확인 | 요청 값: {requested_state} | 세션 값: {stored_state}")
 
@@ -101,5 +82,3 @@ def authorize():
     logger.info(f"✅ 로그인 성공! 사용자 정보: {session['user']}")
 
     return role_check()
-
-
