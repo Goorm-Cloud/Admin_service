@@ -28,7 +28,7 @@ def authorize_route():
 def logout_route():
     return logout()
 
-@login.route('/callback')
+@login_bp.route('/callback')
 def callback():
     """Cognito에서 로그인 후 리디렉트되는 콜백 URL"""
     return redirect(url_for('authorize'))  # ✅ '/authorize'로 리디렉션
