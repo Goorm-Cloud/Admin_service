@@ -12,6 +12,7 @@ def login():
 
     # state = os.urandom(24).hex()  # ✅ OIDC State 생성
     # logger.debug(f"✅ [DEBUG] state 생성: {state}")
+    logger.debug(os.getenv("AUTHORIZE_REDIRECT_URL"))
 
     return oauth.oidc.authorize_redirect(os.getenv("AUTHORIZE_REDIRECT_URL"))
 
