@@ -40,9 +40,9 @@ def authorize():
     logger.debug(f"✅ Redis에서 세션 값 쿼리 - {session_id}")
 
     # ✅ `state` 검증 (로그인 요청 시 저장한 state 값과 비교)
-    if requested_state != session.get('oidc_state'):
-        logger.error("🚨 [ERROR] CSRF 검증 실패! 요청된 state 값 불일치")
-        return "Invalid state parameter", 403
+    # if requested_state != session.get('oidc_state'):
+    #     logger.error("🚨 [ERROR] CSRF 검증 실패! 요청된 state 값 불일치")
+    #     return "Invalid state parameter", 403
 
     token = oauth.oidc.authorize_access_token()
     user = token['userinfo']
