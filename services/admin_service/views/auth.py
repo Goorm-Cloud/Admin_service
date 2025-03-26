@@ -10,13 +10,10 @@ logger = logging.getLogger(__name__)
 
 def login():
 
-    state = os.urandom(24).hex()  # ✅ OIDC State 생성
-    logger.debug(f"✅ [DEBUG] state 생성: {state}")
+    # state = os.urandom(24).hex()  # ✅ OIDC State 생성
+    # logger.debug(f"✅ [DEBUG] state 생성: {state}")
 
-    return oauth.oidc.authorize_redirect(
-        os.getenv("AUTHORIZE_REDIRECT_URL"),
-        state=state
-    )
+    return oauth.oidc.authorize_redirect(os.getenv("AUTHORIZE_REDIRECT_URL"), state=state)
 
 
 def authorize():
