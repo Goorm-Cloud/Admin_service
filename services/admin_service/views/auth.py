@@ -34,7 +34,7 @@ def authorize():
     logger.debug(f"✅ [DEBUG] 받은 토큰 데이터: {token}")
 
 
-    return role_check()
+    return redirect(url_for('admin_bp.admin_dashboard_route'))
 
 
 def role_check():
