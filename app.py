@@ -3,8 +3,8 @@ from flask import Flask, url_for, jsonify
 from services.common.models import db, migrate
 from services.common.oauth import oauth
 from dotenv import load_dotenv
-from flask_session import Session
-import redis
+# from flask_session import Session
+# import redis
 
 from services.admin_service.routes import admin_bp, login_bp
 
