@@ -12,12 +12,9 @@ def login():
 
     state = os.urandom(24).hex()  # ✅ OIDC State 생성
     session['oidc_state'] = state   # Flask 세션에 저장 (혹은 Redis/DB에 저장)
-
     logger.debug(f"✅ [DEBUG] state 생성: {state}")
 
-
     logger.debug(os.getenv("AUTHORIZE_REDIRECT_URL"))
-
     return oauth.oidc.authorize_redirect(
         'https://zoochacha.online/callback',
         state=state
@@ -30,6 +27,9 @@ def authorize():
     requested_state = request.args.get("state")
     authorization_code = request.args.get("code")
     logger.debug(f"✅ 콜백 요청 - State: {requested_state}, Code: {authorization_code}")
+
+    check_state = session.get('oidc_state')
+    logger.debug(f"✅ 현재 세션값 - State: {check_state}")
 
     # ✅ `state` 검증 (로그인 요청 시 저장한 state 값과 비교)
     if requested_state != session.get('oidc_state'):
