@@ -16,7 +16,7 @@ def login():
     # logger.debug(f"✅ [DEBUG] state 생성: {state}")
 
     session_id = session.sid  # Flask 세션 ID 가져오기
-    current_app.config["SESSION_REDIS"].setex(f"state:{state}", 300, session_id)  # 5분 TTL
+    current_app.config["SESSION_REDIS"].setex(f"oidc_state:{state}", 300, state)  # 5분 TTL
     logger.debug(f"✅ [DEBUG] 저장된 state 값: {state}")
 
     logger.debug(os.getenv("AUTHORIZE_REDIRECT_URL"))
@@ -36,13 +36,13 @@ def authorize():
     # stored_state = session.get('oidc_state')
     # logger.debug(f"✅ 현재 세션 쿠키 state값 - State: {stored_state}")
 
-    session_id = current_app.config["SESSION_REDIS"].get(f"state:{requested_state}")
-    logger.debug(f"✅ Redis에서 세션 값 쿼리 - {session_id}")
+    stored_state = current_app.config["SESSION_REDIS"].get(f"oidc_state:{requested_state}")
+    logger.debug(f"✅ Redis에서 세션 값 쿼리 - {stored_state}")
 
     # ✅ `state` 검증 (로그인 요청 시 저장한 state 값과 비교)
-    # if requested_state != session.get('oidc_state'):
-    #     logger.error("🚨 [ERROR] CSRF 검증 실패! 요청된 state 값 불일치")
-    #     return "Invalid state parameter", 403
+    if requested_state != stored_state:
+        logger.error("🚨 [ERROR] CSRF 검증 실패! 요청된 state 값 불일치")
+        return "Invalid state parameter", 403
 
     token = oauth.oidc.authorize_access_token()
     user = token['userinfo']
