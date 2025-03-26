@@ -14,7 +14,7 @@ def login():
     # logger.debug(f"✅ [DEBUG] state 생성: {state}")
     logger.debug(os.getenv("AUTHORIZE_REDIRECT_URL"))
 
-    return oauth.oidc.authorize_redirect(os.getenv("AUTHORIZE_REDIRECT_URL"))
+    return oauth.oidc.authorize_redirect('https://zoochacha.online/callback')
 
 
 def authorize():
