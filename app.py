@@ -1,5 +1,5 @@
 import os
-from flask import Flask, url_for, jsonify
+from flask import Flask, url_for, jsonify, session, redirect
 from services.common.models import db, migrate
 from services.common.oauth import oauth
 from dotenv import load_dotenv
@@ -16,7 +16,7 @@ def create_app():
 
     # config 설정파일 불러오기 *jinwoo
     app.config.from_pyfile('config.py')
-    # app.secret_key = os.urandom(24)
+    app.secret_key = os.urandom(24)
 
     # Session(app)
 
@@ -42,7 +42,6 @@ def create_app():
 
     @app.route("/")
     def index():
-        from flask import redirect
         return redirect("/admin")
 
     @app.route('/health')
