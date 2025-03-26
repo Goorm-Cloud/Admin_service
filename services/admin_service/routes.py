@@ -28,9 +28,9 @@ def login_route():
 def role_check_route():
     return role_check()
 
-# @login_bp.route('/authorize')
-# def authorize_route():
-#     return authorize()
+@login_bp.route('/authorize')
+def authorize_route():
+    return authorize()
 
 @login_bp.route('/logout')
 def logout_route():
