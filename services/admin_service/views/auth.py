@@ -2,6 +2,7 @@ from flask import render_template, redirect, url_for, session, request, jsonify,
 from services.common.oauth import oauth
 import os
 import logging
+from flask_session import Session  # 추가된 임포트
 import json
 
 # 📌 로깅 설정
@@ -28,8 +29,8 @@ def authorize():
     authorization_code = request.args.get("code")
     logger.debug(f"✅ 콜백 요청 - State: {requested_state}, Code: {authorization_code}")
 
-    check_state = session.get('oidc_state')
-    logger.debug(f"✅ 현재 세션값 - State: {check_state}")
+    stored_state = session.get('oidc_state')
+    logger.debug(f"✅ 현재 세션 쿠키 state값 - State: {stored_state}")
 
     # ✅ `state` 검증 (로그인 요청 시 저장한 state 값과 비교)
     if requested_state != session.get('oidc_state'):

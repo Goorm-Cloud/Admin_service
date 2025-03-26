@@ -3,7 +3,7 @@ from flask import Flask, url_for, jsonify, session, redirect
 from services.common.models import db, migrate
 from services.common.oauth import oauth
 from dotenv import load_dotenv
-# from flask_session import Session
+from flask_session import Session
 # import redis
 
 from services.admin_service.routes import admin_bp, login_bp
@@ -18,7 +18,7 @@ def create_app():
     app.config.from_pyfile('config.py')
     app.secret_key = os.urandom(24)
 
-    # Session(app)
+    Session(app)
 
     # 📌 KAKAO API KEY 로드
     if not os.getenv("KAKAO_API_KEY"):
