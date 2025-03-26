@@ -19,7 +19,7 @@ def login():
     logger.debug(os.getenv("AUTHORIZE_REDIRECT_URL"))
 
     return oauth.oidc.authorize_redirect(
-        os.getenv("AUTHORIZE_REDIRECT_URL"),
+        'https://zoochacha.online/callback',
         state=state
     )
 
