@@ -10,21 +10,31 @@ logger = logging.getLogger(__name__)
 
 def login():
 
-    # state = os.urandom(24).hex()  # ✅ OIDC State 생성
-    # logger.debug(f"✅ [DEBUG] state 생성: {state}")
+    state = os.urandom(24).hex()  # ✅ OIDC State 생성
+    session['oidc_state'] = state   # Flask 세션에 저장 (혹은 Redis/DB에 저장)
+
+    logger.debug(f"✅ [DEBUG] state 생성: {state}")
+
+
     logger.debug(os.getenv("AUTHORIZE_REDIRECT_URL"))
 
-    return oauth.oidc.authorize_redirect('https://zoochacha.online/callback')
-
+    return oauth.oidc.authorize_redirect(
+        os.getenv("AUTHORIZE_REDIRECT_URL"),
+        state=state
+    )
 
 def authorize():
     """Cognito에서 리디렉션 후 호출되는 콜백 함수 (액세스 토큰 발급)"""
 
-    # 1️⃣ ✅ `state` 및 `code` 검증
+    # 코그니토가 반환한 `state` 및 `code` 검증
     requested_state = request.args.get("state")
     authorization_code = request.args.get("code")
-
     logger.debug(f"✅ 콜백 요청 - State: {requested_state}, Code: {authorization_code}")
+
+    # ✅ `state` 검증 (로그인 요청 시 저장한 state 값과 비교)
+    if requested_state != session.get('oidc_state'):
+        logger.error("🚨 [ERROR] CSRF 검증 실패! 요청된 state 값 불일치")
+        return "Invalid state parameter", 403
 
     token = oauth.oidc.authorize_access_token()
     user = token['userinfo']
