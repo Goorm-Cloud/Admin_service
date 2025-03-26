@@ -9,33 +9,9 @@ logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %
 logger = logging.getLogger(__name__)
 
 def login():
-    """사용자 로그인 시, OIDC state와 session_id를 Redis에 저장하고 Cognito 인증 페이지로 리디렉션"""
-    session.permanent = True
+
     state = os.urandom(24).hex()  # ✅ OIDC State 생성
     session["oidc_state"] = state
-
-    session_id = session.sid  # 현재 Flask 세션 ID 가져오기
-    logger.debug(f"🔥 [DEBUG] 생성된 session_id: {session_id}")  # ✅ session_id 확인
-
-    redis_state_key = f"state:{state}"
-    redis_session_key = f"session:{session_id}"
-
-    # ✅ JSON 직렬화하여 Redis에 저장
-    session_id_json = json.dumps(session_id)
-    session_data = json.dumps({"session_id": session_id, "exp": 1711381200}, ensure_ascii=False)
-
-    logger.debug(f"🔥 [DEBUG] Redis에 저장될 session_id: {session_id_json}")
-    logger.debug(f"🔥 [DEBUG] Redis에 저장될 session_data: {session_data}")
-
-    current_app.config["SESSION_REDIS"].setex(redis_state_key, 300, session_id_json)
-    current_app.config["SESSION_REDIS"].setex(redis_session_key, 300, session_data)
-
-    # ✅ Redis에 저장된 값 바로 확인
-    stored_session_id = current_app.config["SESSION_REDIS"].get(redis_state_key)
-    stored_session_data = current_app.config["SESSION_REDIS"].get(redis_session_key)
-
-    logger.debug(f"🔍 [DEBUG] Redis에 저장된 session_id: {stored_session_id}")
-    logger.debug(f"🔍 [DEBUG] Redis에 저장된 session_data: {stored_session_data}")
 
     return oauth.oidc.authorize_redirect(
         os.getenv("AUTHORIZE_REDIRECT_URL"),
@@ -50,54 +26,13 @@ def authorize():
     requested_state = request.args.get("state")
     authorization_code = request.args.get("code")
 
-    if not requested_state:
-        logger.error("🚨 [ERROR] 요청된 state 값이 없음! CSRF 검증 실패")
-        return jsonify({"error": "State parameter missing"}), 400
-
-    if not authorization_code:
-        logger.error("🚨 [ERROR] Authorization code가 없음! 토큰 요청 불가.")
-        return jsonify({"error": "Authorization code missing"}), 400
-
     logger.debug(f"✅ 콜백 요청 - State: {requested_state}, Code: {authorization_code}")
 
-    # 2️⃣ ✅ Redis에서 `state` 기반으로 `session_id` 조회 (JSON 역직렬화)
-    redis_state_key = f"state:{requested_state}"
-    session_id_json = current_app.config["SESSION_REDIS"].get(redis_state_key)
+    token = oauth.oidc.authorize_access_token()
+    user = token['userinfo']
+    session['user'] = user
+    logger.debug(f"✅ [DEBUG] 받은 토큰 데이터: {token}")
 
-    if not session_id_json:
-        logger.error(f"🚨 [ERROR] Redis에서 state 매핑값 없음! state: {requested_state}")
-        return jsonify({"error": "Invalid state or session expired"}), 403
-
-    try:
-        session_id = json.loads(session_id_json)
-        logger.debug(f"🔥 [DEBUG] Redis에서 불러온 session_id: {session_id}")
-    except json.JSONDecodeError as e:
-        logger.error(f"🚨 [ERROR] session_id 디코딩 실패: {str(e)}")
-        return jsonify({"error": "Failed to decode session ID"}), 500
-
-    # 3️⃣ ✅ Redis에서 `session_id` 기반으로 세션 데이터 조회
-    redis_session_key = f"session:{session_id}"
-    session_data_json = current_app.config["SESSION_REDIS"].get(redis_session_key)
-
-    if not session_data_json:
-        logger.error(f"🚨 [ERROR] Redis에서 세션 데이터 없음! session_id: {session_id}")
-        return jsonify({"error": "Session data not found"}), 403
-
-    try:
-        session_data = json.loads(session_data_json)
-        logger.debug(f"🔍 [DEBUG] Redis에서 찾은 세션 데이터: {session_data}")
-    except json.JSONDecodeError as e:
-        logger.error(f"🚨 [ERROR] 세션 데이터 디코딩 실패: {str(e)}")
-        return jsonify({"error": "Failed to decode session data"}), 500
-
-    # 5️⃣ ✅ Cognito에 Authorization Code 전달하여 액세스 토큰 요청
-    try:
-        token = oauth.oidc.authorize_access_token()
-        session["user"] = token["userinfo"]
-        logger.debug(f"✅ [DEBUG] 받은 토큰 데이터: {token}")
-    except Exception as e:
-        logger.error(f"🚨 [ERROR] 토큰 요청 실패: {str(e)}")
-        return jsonify({"error": "Failed to retrieve access token"}), 500
 
     return role_check()
 

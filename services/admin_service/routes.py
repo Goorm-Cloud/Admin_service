@@ -28,17 +28,17 @@ def login_route():
 def role_check_route():
     return role_check()
 
-# @login_bp.route('/authorize')
-# def authorize_route():
-#     return authorize()
+@login_bp.route('/authorize')
+def authorize_route():
+    return authorize()
 
 @login_bp.route('/logout')
 def logout_route():
     return logout()
 
-@login_bp.route('/callback')
-def callback_route():
-    return authorize()
+# @login_bp.route('/callback')
+# def callback_route():
+#     return authorize()
 
 # 관리자 관련 라우트 - 예약 정보
 @admin_bp.route('/')
