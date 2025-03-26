@@ -1,5 +1,5 @@
 from flask import Blueprint
-from .views.auth import login, role_check, authorize, logout
+from .views.auth import login, role_check, authorize, logout, redirect, url_for
 from .views.admin_list import admin_dashboard
 from .views.reservation import add_reservation, edit_reservation, delete_reservation, reservation_detail
 from .views.parkinglot import edit_parkinglot, admin_parkinglot
@@ -28,9 +28,10 @@ def authorize_route():
 def logout_route():
     return logout()
 
-# @login_bp.route('/callback')
-# def callback_route():
-#     return authorize()
+@login.route('/callback')
+def callback():
+    """Cognito에서 로그인 후 리디렉트되는 콜백 URL"""
+    return redirect(url_for('authorize'))  # ✅ '/authorize'로 리디렉션
 
 # 관리자 관련 라우트 - 예약 정보
 @admin_bp.route('/')
