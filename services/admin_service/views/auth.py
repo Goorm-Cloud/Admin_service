@@ -44,6 +44,7 @@ def authorize():
         logger.error("🚨 [ERROR] CSRF 검증 실패! 요청된 state 값 불일치")
         return "Invalid state parameter", 403
 
+    session["oidc_state"] = requested_state
     token = oauth.oidc.authorize_access_token(state=stored_state)
     user = token['userinfo']
     session['user'] = user
