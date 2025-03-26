@@ -29,6 +29,7 @@ def authorize():
     authorization_code = request.args.get("code")
     logger.debug(f"✅ 콜백 요청 - State: {requested_state}, Code: {authorization_code}")
 
+    session['oidc_state'] = requested_state
     stored_state = session.get('oidc_state')
     logger.debug(f"✅ 현재 세션 쿠키 state값 - State: {stored_state}")
 
