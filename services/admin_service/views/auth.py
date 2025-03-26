@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 def login():
 
     state = os.urandom(24).hex()  # ✅ OIDC State 생성
-    session["oidc_state"] = state
 
     return oauth.oidc.authorize_redirect(
         os.getenv("AUTHORIZE_REDIRECT_URL"),
