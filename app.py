@@ -18,7 +18,7 @@ def create_app():
     app.config.from_pyfile('config.py')
     # app.secret_key = os.urandom(24)
 
-    Session(app)
+    # Session(app)
 
     # 📌 KAKAO API KEY 로드
     if not os.getenv("KAKAO_API_KEY"):
