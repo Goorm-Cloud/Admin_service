@@ -12,8 +12,12 @@ logger = logging.getLogger(__name__)
 def login():
 
     state = os.urandom(24).hex()  # ✅ OIDC State 생성
-    session['oidc_state'] = state   # Flask 세션에 저장 (혹은 Redis/DB에 저장)
-    logger.debug(f"✅ [DEBUG] state 생성: {state}")
+    # session['oidc_state'] = state   # Flask 세션에 저장
+    # logger.debug(f"✅ [DEBUG] state 생성: {state}")
+
+    session_id = session.sid  # Flask 세션 ID 가져오기
+    current_app.config["SESSION_REDIS"].setex(f"state:{state}", 300, session_id)  # 5분 TTL
+    logger.debug(f"✅ [DEBUG] 저장된 state 값: {state}")
 
     logger.debug(os.getenv("AUTHORIZE_REDIRECT_URL"))
     return oauth.oidc.authorize_redirect(
@@ -29,9 +33,11 @@ def authorize():
     authorization_code = request.args.get("code")
     logger.debug(f"✅ 콜백 요청 - State: {requested_state}, Code: {authorization_code}")
 
-    session['oidc_state'] = requested_state
-    stored_state = session.get('oidc_state')
-    logger.debug(f"✅ 현재 세션 쿠키 state값 - State: {stored_state}")
+    # stored_state = session.get('oidc_state')
+    # logger.debug(f"✅ 현재 세션 쿠키 state값 - State: {stored_state}")
+
+    session_id = current_app.config["SESSION_REDIS"].get(f"state:{requested_state}")
+    logger.debug(f"✅ Redis에서 세션 값 쿼리 - {session_id}")
 
     # ✅ `state` 검증 (로그인 요청 시 저장한 state 값과 비교)
     if requested_state != session.get('oidc_state'):
